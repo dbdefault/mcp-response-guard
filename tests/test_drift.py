@@ -18,10 +18,12 @@ def test_shape_of_flattens_nested_objects():
     }
 
 
-def test_shape_of_uses_first_array_item_not_the_count():
+def test_shape_of_uses_array_item_shape_not_the_count():
+    # A uniform array fingerprints by item shape, not by how many items it has.
     one = shape_of({"items": [{"id": 1}]})
     two = shape_of({"items": [{"id": 1}, {"id": 2}]})
-    assert one == two
+    assert one["$.items[0].id"] == "integer"
+    assert two["$.items[0].id"] == "integer"
 
 
 def test_shape_of_distinguishes_null_from_string():
@@ -119,3 +121,36 @@ def test_corrupt_store_raises_value_error(tmp_path):
     store.write_text("not a database")
     with pytest.raises(ValueError, match="not a valid SQLite database"):
         DriftTracker(store)
+
+
+def test_shape_of_records_later_array_elements_with_type_drift():
+    # Issue #19: the second array element is a string while the first is an
+    # object. Both element shapes must be recorded, or drift in later elements
+    # is invisible to compare_shapes.
+    shape = shape_of({"items": [{"id": 1, "name": "a"}, "invalid_string"]})
+    assert shape["$.items[1]"] == "string"
+
+
+def test_shape_of_samples_up_to_three_elements():
+    shape = shape_of({"items": [1, 2, 3, 4, 5]})
+    assert "$.items[0]" in shape
+    assert "$.items[1]" in shape
+    assert "$.items[2]" in shape
+    assert "$.items[3]" not in shape
+
+
+def test_shape_of_uniform_array_fingerprints_each_sampled_item():
+    # A uniform array fingerprints the shape of each sampled element.
+    shape = shape_of({"items": [{"id": 1}, {"id": 2}]})
+    assert shape["$.items[0]"] == "object"
+    assert shape["$.items[0].id"] == "integer"
+    assert shape["$.items[1]"] == "object"
+    assert shape["$.items[1].id"] == "integer"
+
+
+def test_drift_tracker_detects_type_drift_in_later_array_element():
+    tracker = DriftTracker()
+    tracker.record("tool", {"items": [{"id": 1, "name": "a"}]})
+    violations = tracker.check("tool", {"items": [{"id": 1, "name": "a"}, "bad"]})
+    assert [v.code for v in violations] == ["MCPR004"]
+    assert violations[0].path == "$.items[1]"
