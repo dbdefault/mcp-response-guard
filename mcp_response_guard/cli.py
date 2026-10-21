@@ -76,7 +76,8 @@ def check(response, schema_path, tool, fmt, out) -> None:
     _echo_violations(violations, fmt, out)
     if violations:
         sys.exit(1)
-    click.echo("OK: response matches schema")
+    if fmt == "text":
+        click.echo("OK: response matches schema")
 
 
 @main.command()
@@ -107,10 +108,11 @@ def record(response, tool, baseline, fmt, out, no_update) -> None:
     _echo_violations(violations, fmt, out)
     if violations:
         sys.exit(1)
-    if not no_update:
-        click.echo(f"OK: baseline recorded for {tool} in {baseline}")
-    else:
-        click.echo(f"OK: {tool} matches baseline")
+    if fmt == "text":
+        if not no_update:
+            click.echo(f"OK: baseline recorded for {tool} in {baseline}")
+        else:
+            click.echo(f"OK: {tool} matches baseline")
 
 
 @main.command()
