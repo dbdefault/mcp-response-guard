@@ -43,12 +43,19 @@ def _type_name(value: Any) -> str:
     return type(value).__name__
 
 
+#: Number of array elements fingerprinted. Sampling bounds the shape size on
+#: large arrays while still catching element type drift (issue #19).
+_ARRAY_SAMPLE = 3
+
+
 def shape_of(
     instance: Any, _prefix: str = "", _out: dict[str, str] | None = None
 ) -> dict[str, str]:
     """Flatten a response into ``{path: type}``.
 
-    Arrays are represented by their first element: item shape, not item count.
+    Arrays are fingerprinted by a sample of up to ``_ARRAY_SAMPLE`` elements
+    (issue #19): item shape, not item count, and a type drift in a later element
+    is recorded instead of silently missed.
     """
     out = {} if _out is None else _out
     path = _prefix or "$"
@@ -58,7 +65,8 @@ def shape_of(
             child = f"{path}.{key}"
             shape_of(value, child, out)
     elif isinstance(instance, list) and instance:
-        shape_of(instance[0], f"{path}[]", out)
+        for index, item in enumerate(instance[:_ARRAY_SAMPLE]):
+            shape_of(item, f"{path}[{index}]", out)
     return out
 
 
