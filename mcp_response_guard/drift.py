@@ -131,7 +131,12 @@ class DriftTracker:
         self.baselines: dict[str, dict[str, str]] = {}
         if self.store is not None:
             self.store.parent.mkdir(parents=True, exist_ok=True)
-            self._conn = sqlite3.connect(str(self.store))
+            try:
+                self._conn = sqlite3.connect(str(self.store))
+            except sqlite3.Error as exc:
+                raise ValueError(
+                    f"baseline store {self.store} is not a valid SQLite database: {exc}"
+                ) from exc
             try:
                 self._conn.execute(_SCHEMA)
                 self._conn.commit()
