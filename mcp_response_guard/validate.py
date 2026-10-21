@@ -8,6 +8,7 @@ in the response but absent from the schema (a silent-drift signal even when
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from jsonschema import Draft202012Validator
@@ -81,21 +82,31 @@ def _missing_names(error: ValidationError) -> list[str]:
     return absent or [str(name) for name in required]
 
 
+def _matches_pattern(key: str, patterns: Any) -> bool:
+    """True when ``key`` matches any declared ``patternProperties`` regex."""
+    if not isinstance(patterns, dict):
+        return False
+    return any(re.search(pattern, key) for pattern in patterns if isinstance(pattern, str))
+
+
 def _extra_fields(instance: Any, schema: Any, prefix: str = "") -> list[str]:
     """Report declared object fields the schema never mentions.
 
     Only descends into subschemas the schema actually describes, so a response
     with a free-form bag of extra keys yields one violation, not hundreds.
 
-    When ``additionalProperties`` is a schema (dict), extra fields are valid
-    if they pass that schema -- ``jsonschema`` already validates them, so
-    they must not be reported here (issue #17).
+    A key is declared when it is in ``properties`` or matches a
+    ``patternProperties`` regex (issue #18). When ``additionalProperties`` is a
+    schema (dict), extra fields are valid if they pass that schema --
+    ``jsonschema`` already validates them, so they must not be reported here
+    (issue #17).
     """
     if not isinstance(instance, dict) or not isinstance(schema, dict):
         return []
     properties = schema.get("properties")
     if not isinstance(properties, dict):
         return []
+    patterns = schema.get("patternProperties")
     additional = schema.get("additionalProperties")
     if isinstance(additional, dict):
         # additionalProperties is a schema -- jsonschema validates extra fields
@@ -107,10 +118,18 @@ def _extra_fields(instance: Any, schema: Any, prefix: str = "") -> list[str]:
         # (issue #16). Still descend into subschemas below.
         extra = []
     else:
-        extra = [f"{prefix}{key}" for key in instance if key not in properties]
+        extra = [
+            f"{prefix}{key}"
+            for key in instance
+            if key not in properties and not _matches_pattern(key, patterns)
+        ]
     for key, value in instance.items():
         if key in properties:
             extra.extend(_extra_fields(value, properties[key], f"{prefix}{key}."))
+        elif isinstance(patterns, dict) and key in patterns and isinstance(patterns[key], dict):
+            # A pattern-matching key is declared: descend into its subschema so
+            # nested undeclared fields are still reported.
+            extra.extend(_extra_fields(value, patterns[key], f"{prefix}{key}."))
     return extra
 
 

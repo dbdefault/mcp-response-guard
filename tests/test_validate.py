@@ -138,3 +138,54 @@ def test_matching_error_response_is_clean():
         "required": ["message"],
     }
     assert validate_error_response({"message": "boom"}, error_schema) == []
+
+
+def test_pattern_property_field_is_not_reported_as_extra():
+    # Issue #18: a field matching a declared patternProperties regex is valid,
+    # so _extra_fields must not report it as MCPR002.
+    schema = {
+        "type": "object",
+        "properties": {"a": {"type": "string"}},
+        "patternProperties": {"^x-": {"type": "string"}},
+    }
+    response = {"a": "hello", "x-extra": "world"}
+    assert validate_response(response, schema) == []
+
+
+def test_field_matching_no_pattern_is_still_extra():
+    schema = {
+        "type": "object",
+        "properties": {"a": {"type": "string"}},
+        "patternProperties": {"^x-": {"type": "string"}},
+    }
+    response = {"a": "hello", "y-extra": "world"}
+    assert [(v.code, v.path) for v in validate_response(response, schema)] == [
+        ("MCPR002", "y-extra")
+    ]
+
+
+def test_pattern_property_field_is_still_type_checked():
+    # A pattern-matching field is valid, but it must still satisfy its subschema.
+    schema = {
+        "type": "object",
+        "properties": {"a": {"type": "string"}},
+        "patternProperties": {"^x-": {"type": "string"}},
+    }
+    response = {"a": "hello", "x-extra": 1}
+    assert [(v.code, v.path) for v in validate_response(response, schema)] == [
+        ("MCPR003", "x-extra")
+    ]
+
+
+def test_nested_pattern_property_field_is_not_extra():
+    schema = {
+        "type": "object",
+        "properties": {
+            "meta": {
+                "type": "object",
+                "patternProperties": {"^x-": {"type": "string"}},
+            }
+        },
+    }
+    response = {"meta": {"x-trace": "abc"}}
+    assert validate_response(response, schema) == []
