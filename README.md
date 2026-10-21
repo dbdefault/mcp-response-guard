@@ -44,13 +44,13 @@ Exits `1` when there are violations, `0` when the response matches.
 ### `record` — check a response for drift, then store it as the new baseline
 
 ```bash
-mcp-response-guard record resp.json --tool fs.read --baseline .drift_log.json
+mcp-response-guard record resp.json --tool fs.read --baseline .drift_log.db
 ```
 
 | Option | Meaning |
 |--------|---------|
 | `--tool NAME` | Tool the response came from (required) |
-| `--baseline PATH` | Baseline store, created if missing (default `.drift_log.json`) |
+| `--baseline PATH` | Baseline store, created if missing (default `.drift_log.db`) |
 | `--no-update` | Compare only; leave the stored baseline untouched |
 | `--format`, `--output` | As for `check` |
 
@@ -61,7 +61,7 @@ changed type is `MCPR004`. Exits `1` on drift.
 ### `report` — list the baselines stored in a file
 
 ```bash
-mcp-response-guard report .drift_log.json
+mcp-response-guard report .drift_log.db
 ```
 
 Same `--format` and `--output` options. A missing or empty store is not an
@@ -89,7 +89,7 @@ if violations:
 
 error_violations = validate_error_response(error_payload, error_schema, tool="fs.read")
 
-tracker = DriftTracker(".drift_log.json")
+tracker = DriftTracker(".drift_log.db")
 drift = tracker.check("fs.read", response)   # compare only
 drift = tracker.record("fs.read", response)  # compare, then store as the new baseline
 ```
