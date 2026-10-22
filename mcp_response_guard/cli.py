@@ -33,6 +33,14 @@ def _write_out(out: str, payload: str) -> None:
     path.write_text(payload, encoding="utf-8")
 
 
+def _echo_text(message: str, out: str | None) -> None:
+    """Emit a text-format line to ``out`` or to stdout."""
+    if out:
+        _write_out(out, message + "\n")
+    else:
+        click.echo(message)
+
+
 def _echo_violations(violations: list[Violation], fmt: str, out: str | None) -> None:
     if fmt == "json":
         payload = json.dumps([v.as_dict() for v in violations], indent=2)
@@ -47,6 +55,12 @@ def _echo_violations(violations: list[Violation], fmt: str, out: str | None) -> 
             _write_out(out, payload + "\n")
         else:
             click.echo(payload)
+        return
+    if out:
+        if not violations:
+            return
+        lines = [f"{v.code} {v.severity.value}: {v.message}" for v in violations]
+        _write_out(out, "\n".join(lines) + "\n")
         return
     for violation in violations:
         click.secho(
@@ -77,7 +91,7 @@ def check(response, schema_path, tool, fmt, out) -> None:
     if violations:
         sys.exit(1)
     if fmt == "text":
-        click.echo("OK: response matches schema")
+        _echo_text("OK: response matches schema", out)
 
 
 @main.command()
@@ -110,9 +124,9 @@ def record(response, tool, baseline, fmt, out, no_update) -> None:
         sys.exit(1)
     if fmt == "text":
         if not no_update:
-            click.echo(f"OK: baseline recorded for {tool} in {baseline}")
+            _echo_text(f"OK: baseline recorded for {tool} in {baseline}", out)
         else:
-            click.echo(f"OK: {tool} matches baseline")
+            _echo_text(f"OK: {tool} matches baseline", out)
 
 
 @main.command()

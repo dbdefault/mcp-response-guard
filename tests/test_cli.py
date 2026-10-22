@@ -75,6 +75,73 @@ def test_check_writes_output_file(runner, tmp_path):
     assert out.is_file()
 
 
+def test_check_text_output_writes_violations_to_file(runner, tmp_path):
+    """--output must be honored for text format when there are violations (#34)."""
+    schema = _write(tmp_path / "schema.json", SCHEMA)
+    response = _write(tmp_path / "resp.json", {"path": "/etc/hosts"})
+    out = tmp_path / "out" / "report.txt"
+    result = runner.invoke(
+        main,
+        [
+            "check",
+            response,
+            "--schema",
+            schema,
+            "--tool",
+            "fs.read",
+            "--format",
+            "text",
+            "--output",
+            str(out),
+        ],
+    )
+    assert result.exit_code == 1
+    assert out.is_file()
+    content = out.read_text(encoding="utf-8")
+    assert "MCPR001" in content
+
+
+def test_check_text_output_writes_ok_to_file(runner, tmp_path):
+    """--output must capture the OK line for a clean text check (#34)."""
+    schema = _write(tmp_path / "schema.json", SCHEMA)
+    response = _write(tmp_path / "resp.json", {"path": "/etc/hosts", "size": 42})
+    out = tmp_path / "out" / "ok.txt"
+    result = runner.invoke(
+        main,
+        ["check", response, "--schema", schema, "--format", "text", "--output", str(out)],
+    )
+    assert result.exit_code == 0
+    assert out.is_file()
+    assert "OK: response matches schema" in out.read_text(encoding="utf-8")
+
+
+def test_record_text_output_writes_violations_to_file(runner, tmp_path):
+    """--output must be honored for text format on record drift (#34)."""
+    store = str(tmp_path / "drift.db")
+    first = _write(tmp_path / "a.json", {"path": "/a"})
+    second = _write(tmp_path / "b.json", {"path": "/a", "inode": 7})
+    runner.invoke(main, ["record", first, "--tool", "fs.read", "--baseline", store])
+    out = tmp_path / "out" / "drift.txt"
+    result = runner.invoke(
+        main,
+        [
+            "record",
+            second,
+            "--tool",
+            "fs.read",
+            "--baseline",
+            store,
+            "--format",
+            "text",
+            "--output",
+            str(out),
+        ],
+    )
+    assert result.exit_code == 1
+    assert out.is_file()
+    assert "MCPR004" in out.read_text(encoding="utf-8")
+
+
 def test_check_reports_missing_response_file(runner, tmp_path):
     schema = _write(tmp_path / "schema.json", SCHEMA)
     result = runner.invoke(main, ["check", str(tmp_path / "nope.json"), "--schema", schema])
