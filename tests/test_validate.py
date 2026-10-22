@@ -189,3 +189,74 @@ def test_nested_pattern_property_field_is_not_extra():
     }
     response = {"meta": {"x-trace": "abc"}}
     assert validate_response(response, schema) == []
+
+
+def test_undeclared_field_in_array_items_is_reported():
+    # Issue #27: _extra_fields must descend into ``items`` schemas, not only
+    # object properties, so undeclared fields inside array elements surface.
+    schema = {
+        "type": "object",
+        "properties": {
+            "items": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {"id": {"type": "integer"}},
+                },
+            }
+        },
+    }
+    response = {"items": [{"id": 1, "extra": "x"}]}
+    assert [(v.code, v.path) for v in validate_response(response, schema)] == [
+        ("MCPR002", "items[0].extra")
+    ]
+
+
+def test_undeclared_field_in_prefix_items_is_reported():
+    schema = {
+        "type": "object",
+        "properties": {
+            "pair": {
+                "type": "array",
+                "prefixItems": [
+                    {"type": "object", "properties": {"a": {"type": "integer"}}},
+                    {"type": "object", "properties": {"b": {"type": "integer"}}},
+                ],
+            }
+        },
+    }
+    response = {"pair": [{"a": 1, "extra": True}, {"b": 2, "other": 3}]}
+    assert [(v.code, v.path) for v in validate_response(response, schema)] == [
+        ("MCPR002", "pair[0].extra"),
+        ("MCPR002", "pair[1].other"),
+    ]
+
+
+def test_undeclared_field_in_nested_array_items_is_reported():
+    schema = {
+        "type": "object",
+        "properties": {
+            "rows": {
+                "type": "array",
+                "items": {
+                    "type": "array",
+                    "items": {"type": "object", "properties": {"id": {"type": "integer"}}},
+                },
+            }
+        },
+    }
+    response = {"rows": [[{"id": 1, "extra": "x"}]]}
+    assert [(v.code, v.path) for v in validate_response(response, schema)] == [
+        ("MCPR002", "rows[0][0].extra")
+    ]
+
+
+def test_free_form_array_items_are_not_flooded_with_extra_field_violations():
+    # An array schema without an ``items`` subschema describes nothing about
+    # element contents, so element keys must not be reported.
+    schema = {
+        "type": "object",
+        "properties": {"items": {"type": "array"}},
+    }
+    response = {"items": [{"a": 1, "b": 2}, {"c": 3}]}
+    assert validate_response(response, schema) == []

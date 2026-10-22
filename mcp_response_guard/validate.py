@@ -89,6 +89,30 @@ def _matches_pattern(key: str, patterns: Any) -> bool:
     return any(re.search(pattern, key) for pattern in patterns if isinstance(pattern, str))
 
 
+def _array_prefix(prefix: str, index: int) -> str:
+    return f"{prefix[:-1] if prefix.endswith('.') else prefix}[{index}]."
+
+
+def _extra_fields_in_array(instance: list, schema: dict, prefix: str) -> list[str]:
+    """Descend into ``items``/``prefixItems`` subschemas of an array (issue #27)."""
+    extra: list[str] = []
+    items = schema.get("items")
+    prefix_items = schema.get("prefixItems")
+    if isinstance(prefix_items, list):
+        for index, item_schema in enumerate(prefix_items):
+            if index < len(instance):
+                extra.extend(
+                    _extra_fields(instance[index], item_schema, _array_prefix(prefix, index))
+                )
+        if isinstance(items, dict):
+            for index in range(len(prefix_items), len(instance)):
+                extra.extend(_extra_fields(instance[index], items, _array_prefix(prefix, index)))
+    elif isinstance(items, dict):
+        for index, item in enumerate(instance):
+            extra.extend(_extra_fields(item, items, _array_prefix(prefix, index)))
+    return extra
+
+
 def _extra_fields(instance: Any, schema: Any, prefix: str = "") -> list[str]:
     """Report declared object fields the schema never mentions.
 
@@ -101,7 +125,11 @@ def _extra_fields(instance: Any, schema: Any, prefix: str = "") -> list[str]:
     ``jsonschema`` already validates them, so they must not be reported here
     (issue #17).
     """
-    if not isinstance(instance, dict) or not isinstance(schema, dict):
+    if not isinstance(schema, dict):
+        return []
+    if isinstance(instance, list):
+        return _extra_fields_in_array(instance, schema, prefix)
+    if not isinstance(instance, dict):
         return []
     properties = schema.get("properties")
     if not isinstance(properties, dict):

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Descend into array `items`/`prefixItems` schemas when reporting undeclared
+  fields, so array element drift is reported as `MCPR002` (#27).
+
 ## [0.2.0] - 2026-10-11
 
 ### Added
