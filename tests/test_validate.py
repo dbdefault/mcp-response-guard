@@ -204,3 +204,8 @@ def test_pattern_properties_only_schema_allows_matching_fields():
     schema = {"type": "object", "patternProperties": {"^x-": {"type": "string"}}}
     response = {"x-extra": "world"}
     assert validate_response(response, schema) == []
+
+
+@pytest.mark.parametrize("schema", [{}, {"type": "object"}])
+def test_unconstrained_schema_stays_free_form(schema):
+    assert validate_response({"anything": {"nested": "value"}}, schema) == []

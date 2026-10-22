@@ -104,11 +104,13 @@ def _extra_fields(instance: Any, schema: Any, prefix: str = "") -> list[str]:
     if not isinstance(instance, dict) or not isinstance(schema, dict):
         return []
     properties = schema.get("properties")
-    if not isinstance(properties, dict):
-        # Missing or non-dict properties: still check patternProperties and
-        # report undeclared keys (issue #33).
-        properties = {}
     patterns = schema.get("patternProperties")
+    if properties is None and isinstance(patterns, dict):
+        # Pattern-only schemas declare keys too (issue #33); unconstrained
+        # schemas without properties/patternProperties stay free-form.
+        properties = {}
+    if not isinstance(properties, dict):
+        return []
     additional = schema.get("additionalProperties")
     if isinstance(additional, dict):
         # additionalProperties is a schema -- jsonschema validates extra fields
