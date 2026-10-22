@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from .drift import DriftTracker, compare_shapes, shape_of
 from .models import Severity, Violation
