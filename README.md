@@ -2,6 +2,8 @@
 
 # MCP Response Guard
 
+![CI](https://github.com/yunaremaia/mcp-response-guard/actions/workflows/ci.yml/badge.svg) ![License](https://img.shields.io/github/license/yunaremaia/mcp-response-guard) ![PyPI](https://img.shields.io/pypi/v/mcp-response-guard)
+
 > Runtime schema validation and drift detection for MCP server responses.
 > Catch tool outputs that deviate from their declared JSON schemas.
 
