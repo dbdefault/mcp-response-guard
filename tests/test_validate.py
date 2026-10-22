@@ -189,3 +189,18 @@ def test_nested_pattern_property_field_is_not_extra():
     }
     response = {"meta": {"x-trace": "abc"}}
     assert validate_response(response, schema) == []
+
+
+def test_pattern_properties_only_schema_reports_undeclared_fields():
+    # Issue #33: schemas that declare only patternProperties (no properties)
+    # must still report keys that match none of the patterns as MCPR002.
+    schema = {"type": "object", "patternProperties": {"^x-": {"type": "string"}}}
+    response = {"a": "hello"}
+    assert [(v.code, v.path) for v in validate_response(response, schema)] == [("MCPR002", "a")]
+
+
+def test_pattern_properties_only_schema_allows_matching_fields():
+    # Matching keys remain valid when the schema has no properties key.
+    schema = {"type": "object", "patternProperties": {"^x-": {"type": "string"}}}
+    response = {"x-extra": "world"}
+    assert validate_response(response, schema) == []

@@ -105,7 +105,9 @@ def _extra_fields(instance: Any, schema: Any, prefix: str = "") -> list[str]:
         return []
     properties = schema.get("properties")
     if not isinstance(properties, dict):
-        return []
+        # Missing or non-dict properties: still check patternProperties and
+        # report undeclared keys (issue #33).
+        properties = {}
     patterns = schema.get("patternProperties")
     additional = schema.get("additionalProperties")
     if isinstance(additional, dict):
